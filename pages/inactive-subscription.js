@@ -1,30 +1,31 @@
-import { useAppBridge } from "@shopify/app-bridge-react";
-import {
-  Page,
-  List,
-  Layout,
-  Card,
-  DescriptionList,
-  TextStyle,
-  Heading,
-  TextContainer,
-} from "@shopify/polaris";
+import { useRouter } from "next/router";
+import { Page, Layout, Card, Heading, TextContainer } from "@shopify/polaris";
 
 const InactiveSubscription = () => {
-  const app = useAppBridge();
+  const router = useRouter();
 
   return (
     <>
       <Page>
         <Layout>
           <Layout.Section>
-            <Card>
+            <Card
+              primaryFooterAction={{
+                content: "Update Subscription",
+                onAction: () => {
+                  const url = "/offline/auth?shop=" + router.query.shop;
+                  router.replace(url);
+                },
+              }}
+            >
               <Card.Section>
                 <TextContainer>
                   <Heading>Inactive Subscription</Heading>
                   <p>
                     Your subscription is currently inactive, please subscribe to
-                    use the app.
+                    use the app. You can do this by deleting the app and
+                    reinstalling. Once the app is reinstalled please approve the
+                    app charge.
                   </p>
                 </TextContainer>
               </Card.Section>

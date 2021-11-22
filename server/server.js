@@ -29,8 +29,7 @@ Shopify.Context.initialize({
   IS_EMBEDDED_APP: true,
   // This should be replaced with your preferred storage strategy
   SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
-  ACTIVE_SUBSCRIPTION: "UNDEFINED",
-  ACTIVE_STATUS_CHECKED: false,
+  ACTIVE_SUBSCRIPTION: "ACTIVE",
 });
 
 // Storing the currently active shops in memory will force them to re-login when your server restarts. You should
@@ -108,11 +107,7 @@ app.prepare().then(async () => {
   };
 
   const verifySubscription = async (ctx, next) => {
-    console.log("verifySubscription");
-    console.log(Shopify.Context.ACTIVE_SUBSCRIPTION);
     if (Shopify.Context.ACTIVE_SUBSCRIPTION !== "INACTIVE") {
-      Shopify.Context.ACTIVE_SUBSCRIPTION = "ACTIVATING";
-      console.log("not inactive");
       const { shop } = ctx.query;
       if (shop !== undefined) {
         const session = await Shopify.Utils.loadOfflineSession(shop);
@@ -120,35 +115,25 @@ app.prepare().then(async () => {
           const client = createClient(shop, session.accessToken);
           const subscriptionStatus = await getSubscriptionStatus(client);
           Shopify.Context.ACTIVE_SUBSCRIPTION = subscriptionStatus;
-          Shopify.Context.ACTIVE_STATUS_CHECKED = true;
         }
       }
-    } else {
-      Shopify.Context.ACTIVE_STATUS_CHECKED = false;
     }
     return next();
   };
 
   const verifyIfActiveShopifyShop = (ctx, next) => {
-    const { shop } = ctx.query;
+    const { shop, host } = ctx.query;
 
-    console.log(Shopify.Context.ACTIVE_SUBSCRIPTION);
     // This shop doesn't have an active subscription yet, redriect to OAuth to trigger the billing
     if (
       Shopify.Context.ACTIVE_SUBSCRIPTION === "INACTIVE" &&
-      !Shopify.Context.ACTIVE_STATUS_CHECKED
+      host !== undefined
     ) {
-      console.log("redirect for subscription");
-      console.log(Shopify.Context.ACTIVE_SUBSCRIPTION);
-      Shopify.Context.ACTIVE_SUBSCRIPTION = "ACTIVATING";
-      ctx.redirect(`/offline/auth?shop=${shop}`);
+      ctx.redirect(
+        `${process.env.HOST}/inactive-subscription?shop=${shop}&host=${host}`
+      );
       return;
     }
-
-    // if (Shopify.Context.ACTIVE_SUBSCRIPTION === "INACTIVE") {
-    //   ctx.redirect(`/offline/auth?shop=${shop}`);
-    //   return;
-    // }
 
     // This shop hasn't been seen yet, go through OAuth to create a session
     if (ACTIVE_SHOPIFY_SHOPS[shop] === undefined) {
@@ -177,6 +162,10 @@ app.prepare().then(async () => {
       await Shopify.Utils.graphqlProxy(ctx.req, ctx.res);
     }
   );
+
+  router.get("/inactive-subscription", async (ctx) => {
+    await handleRequest(ctx);
+  });
 
   router.get("(/_next/static/.*)", handleRequest); // Static content is clear
   router.get("/_next/webpack-hmr", handleRequest); // Webpack content is clear
